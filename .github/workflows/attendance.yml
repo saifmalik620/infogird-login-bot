@@ -1,0 +1,70 @@
+# .github/workflows/attendance.yml
+# Runs automatically — no laptop needed!
+
+name: Auto Attendance
+
+on:
+  schedule:
+    # ┌─────────── GitHub uses UTC time ───────────┐
+    # │ India (IST) = UTC + 5:30                   │
+    # │ 9:00 AM IST  = 3:30 AM UTC                 │
+    # │ 7:00 PM IST  = 1:30 PM UTC                 │
+    # └────────────────────────────────────────────-┘
+    - cron: '30 3 * * 1-5'    # Punch IN  — 9:00 AM IST, Mon-Fri
+    - cron: '30 13 * * 1-5'   # Punch OUT — 7:00 PM IST, Mon-Fri
+
+  # This lets you also run it manually from GitHub website
+  workflow_dispatch:
+    inputs:
+      punch_type:
+        description: 'Punch type'
+        required: true
+        default: 'in'
+        type: choice
+        options:
+          - in
+          - out
+
+jobs:
+  attendance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Determine punch type
+        id: punch
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.punch_type }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 3 * * 1-5" ]; then
+            echo "type=in" >> $GITHUB_OUTPUT
+          else
+            echo "type=out" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run attendance punch
+        env:
+          INFOGIRD_EMAIL: ${{ secrets.INFOGIRD_EMAIL }}
+          INFOGIRD_PASS: ${{ secrets.INFOGIRD_PASS }}
+        run: node attendance.js ${{ steps.punch.outputs.type }}
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: attendance-screenshots-${{ steps.punch.outputs.type }}-${{ github.run_number }}
+          path: '*.png'
+          retention-days: 7
