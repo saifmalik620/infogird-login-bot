@@ -1,0 +1,8 @@
+{
+  "name": "infogird-attendance",
+  "version": "1.0.0",
+  "description": "Auto punch In/Out attendance on InfoGird",
+  "dependencies": {
+    "playwright": "^1.52.0"
+  }
+}
